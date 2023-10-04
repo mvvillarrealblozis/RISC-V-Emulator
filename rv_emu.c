@@ -24,6 +24,26 @@ static void rv_one(rv_state *state) {
 #endif
 
     switch (opcode) {
+        case 0b0110011:
+            // R-type instructions have two register operands
+            emu_r_type(rsp, iw);
+            break;
+        case 0b1100111:
+            // JALR (aka RET) is a variant of I-type instructions
+            emu_jalr(rsp, iw);
+            break;
+        case 0b0010011:
+        	emu_i_type(rsp, iw);
+        	break;
+        case 0b0110111:
+        	emu_u_type(rsp, iw);
+        	break;
+        case 0b1101111:
+        	emu_j_type(rsp, iw);
+        	break;
+        case 0b1100011:
+        	emu_b_type(rsp, iw);
+        	break;
         default:
             unsupported("Unknown opcode: ", opcode);
     }
