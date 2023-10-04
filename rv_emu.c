@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 
 #include "rv_emu.h"
 #include "bits.h"
@@ -72,4 +74,215 @@ void rv_print(rv_analysis *a) {
     print_pct("Conditional branches   = %d (%.2f%%)\n", b_total, a->i_count);
     print_pct("  Branches taken       = %d (%.2f%%)\n", a->b_taken, b_total);
     print_pct("  Branches not taken   = %d (%.2f%%)\n", a->b_not_taken, b_total);
+}
+
+
+uint32_t get_bits(uint64_t num, uint32_t start, uint32_t count);
+bool get_bit(uint64_t num, uint32_t which);
+int64_t sign_extend(uint64_t num, uint32_t start);
+
+void unsupported(char *s, uint32_t val) {
+    printf("%s: %d\n", s, val);
+    exit(-1);
+}
+
+void rv_init(struct rv_state *rsp, uint32_t *func,
+             uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3) {
+    int i;
+
+    // Zero out registers
+    for (i = 0; i < NREGS; i += 1) {
+        rsp->regs[i] = 0;
+    }
+
+    // Zero out the stack
+    for (i = 0; i < STACK_SIZE; i += 1) {
+        rsp->stack[i] = 0;
+    }
+
+    // Initialize the Program Counter
+    rsp->pc = (uint64_t) func;
+
+    // Initialize the Link Register to a sentinel value
+    rsp->regs[RA] = 0;
+
+    // Initialize Stack Pointer to the logical bottom of the stack
+    rsp->regs[SP] = (uint64_t) &rsp->stack[STACK_SIZE];
+
+    // Initialize the first 4 arguments in emulated r0-r3
+    rsp->regs[A0] = a0;
+    rsp->regs[A1] = a1;
+    rsp->regs[A2] = a2;
+    rsp->regs[A3] = a3;
+}
+
+void emu_r_type(struct rv_state *rsp, uint32_t iw) {
+    uint32_t rd = get_bits(iw, 7, 5);
+    uint32_t rs1 = get_bits(iw, 15, 5);
+    uint32_t rs2 = get_bits(iw, 20, 5);
+    uint32_t funct3 = get_bits(iw, 12, 3);
+    uint32_t funct7 = get_bits(iw, 25, 7);
+
+    if (funct3 == 0b000) {
+    	if (funct7 == 0b0000000) { // if its add 
+    		rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
+    	} else if (funct7 == 0b0100000) { // if its sub
+    		rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
+    	} else if (funct7 == 0b0000001) { // if its mul
+    		rsp->regs[rd] = rsp->regs[rs1] * rsp->regs[rs2];
+    	} else {
+    		unsupported("R-type", funct7);
+    	}
+    } else if (funct3 == 0b111){
+    	//and 
+        rsp->regs[rd] = rsp->regs[rs1] & rsp->regs[rs2];
+    } else if (funct3 == 0b110) {
+    	//or 
+    	rsp->regs[rd] = rsp->regs[rs1] | rsp->regs[rs2];
+    } else if (funct3 == 0b101) {
+    	if (funct7 == 0b0000000) { //srl 
+    		rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
+    	}
+    } else if (funct3 == 0b001) { //ssl
+    	rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];
+    } else {
+    	unsupported("R-type", funct3);
+    }
+    rsp->pc += 4; // Next instruction
+}
+
+void emu_i_type(struct rv_state *rsp, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
+	uint32_t rs1 = get_bits(iw, 15, 5);
+	int32_t imm12 = sign_extend(get_bits(iw, 20, 12), 11);
+	uint32_t funct3 = get_bits(iw, 12, 3);
+
+	if (funct3 == 0b101) {
+		// srli 
+		uint32_t shamt = imm12 & 0x3F;
+		rsp->regs[rd] = rsp->regs[rs1] >> shamt;
+	} else if (funct3 == 0b000) {
+		if (rs1 == 0) {
+			rsp->regs[rd] = imm12;		// li
+		} else if (imm12 == 0) {
+			rsp->regs[rd] = rsp->regs[rs1];   //mv
+		} else {
+			rsp->regs[rd] = rsp->regs[rs1] + imm12;
+		}
+	}
+
+	rsp->pc += 4;
+}
+
+void emu_u_type(struct rv_state *rsp, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
+
+	int32_t imm20 = sign_extend(get_bits(iw, 12, 20), 19);
+
+	rsp->regs[rd] = imm20;
+
+	rsp->pc += 4;
+}
+
+void emu_j_type(struct rv_state *rsp, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
+	int32_t imm20 = sign_extend(
+			get_bits(iw, 31, 1) << 11 |
+			get_bits(iw, 7, 1) << 6 |
+			get_bits(iw, 25, 6) << 4 |
+			get_bits(iw, 8, 4),
+			11
+	);
+
+	imm20 = (imm20 << 12) >> 12;
+
+	if (rd != 0) {
+		rsp->regs[rd] = rsp->pc + 4;
+	}
+
+	rsp->pc += imm20;
+}
+
+
+void emu_b_type(struct rv_state *rsp, uint32_t iw) {
+	uint32_t rs1 = get_bits(iw, 15, 5);
+	uint32_t rs2 = get_bits(iw, 20, 5);
+
+	uint32_t funct3 = get_bits(iw, 12, 3);
+	
+	int64_t imm12 = sign_extend(
+		get_bits(iw, 31, 1) << 12 |
+		get_bits(iw, 7, 1) << 11 |
+		get_bits(iw, 25, 6) << 5 |
+		get_bits(iw, 8, 4) << 1,
+		12
+	);
+	
+	if (funct3 == 0b001) { //bne 
+		if (rsp->regs[rs1] != rsp->regs[rs2]) {
+				rsp->pc += imm12;
+		} else {
+			rsp->pc += 4;
+		}
+	} else if (funct3 == 0b100) { //blt
+		if ((int64_t) rsp->regs[rs1] < (int64_t) rsp->regs[rs2]) {
+				rsp->pc += imm12;
+		} else {
+			rsp->pc += 4;
+		}
+	} 
+}
+
+
+void emu_jalr(struct rv_state *rsp, uint32_t iw) {
+	uint32_t rs1 = get_bits(iw, 15, 5);
+	uint64_t val = rsp->regs[rs1];
+
+	rsp->pc = val;
+}
+
+void rv_one(struct rv_state *rsp) {
+
+    // Get an instruction word from the current Program Counter    
+    uint32_t iw = *(uint32_t*) rsp->pc;
+
+    /* could also think of that ^^^ as:
+        uint32_t *pc = (uint32_t*) rsp->pc;
+        uint32_t iw = *pc;
+    */
+
+    uint32_t opcode = iw & 0b1111111;
+    switch (opcode) {
+        case 0b0110011:
+            // R-type instructions have two register operands
+            emu_r_type(rsp, iw);
+            break;
+        case 0b1100111:
+            // JALR (aka RET) is a variant of I-type instructions
+            emu_jalr(rsp, iw);
+            break;
+        case 0b0010011:
+        	emu_i_type(rsp, iw);
+        	break;
+        case 0b0110111:
+        	emu_u_type(rsp, iw);
+        	break;
+        case 0b1101111:
+        	emu_j_type(rsp, iw);
+        	break;
+        case 0b1100011:
+        	emu_b_type(rsp, iw);
+        	break;
+        default:
+            unsupported("Unknown opcode: ", opcode);
+            
+    }
+}
+
+int rv_emulate(struct rv_state *rsp) {
+    while (rsp->pc != 0) {
+        rv_one(rsp);
+    }
+    
+    return (int) rsp->regs[A0];
 }
