@@ -36,6 +36,9 @@ void emu_r_type(rv_state *state, uint32_t iw) {
                     break;
             }
             break;
+		case 0b100:
+			state->regs[rd] = state->regs[rs1] / state->regs[rs2];
+			break;
         case 0b111: // and
             state->regs[rd] = state->regs[rs1] & state->regs[rs2];
             break;
@@ -207,6 +210,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b101) {
+		// BGE
 		if (state->regs[rs1] >= state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;
