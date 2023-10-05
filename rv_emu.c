@@ -19,50 +19,57 @@ void emu_r_type(rv_state *state, uint32_t iw) {
     uint32_t funct3 = get_bits(iw, 12, 3);
     uint32_t funct7 = get_bits(iw, 25, 7);
 
-    if (funct3 == 0b000) {
-    	if (funct7 == 0b0000000) { // if its add 
-    		state->regs[rd] = state->regs[rs1] + state->regs[rs2];
-    	} else if (funct7 == 0b0100000) { // if its sub
-    		state->regs[rd] = state->regs[rs1] - state->regs[rs2];
-    	} else if (funct7 == 0b0000001) { // if its mul
-    		state->regs[rd] = state->regs[rs1] * state->regs[rs2];
-    	} else {
-    		unsupported("R-type", funct7);
-    	}
-    } else if (funct3 == 0b111){
-    	//and 
-        state->regs[rd] = state->regs[rs1] & state->regs[rs2];
-    } else if (funct3 == 0b110) {
-    	//or 
-    	state->regs[rd] = state->regs[rs1] | state->regs[rs2];
-    } else if (funct3 == 0b101) {
-    	if (funct7 == 0b0000000) { //srl 
-    		state->regs[rd] = state->regs[rs1] >> state->regs[rs2];
-    	}
-    } else if (funct3 == 0b001) { //ssl
-    	state->regs[rd] = state->regs[rs1] << state->regs[rs2];
-    } else if (funct3 == 0b101) {
-    	if (funct7 == 0b0000000) {
-    		// SRLW
-    		uint32_t shamt = state->regs[rs2] & 0x1F;
-    		int32_t res = (int32_t)state->regs[rs1] >> shamt;
-    		state->regs[rd] = (int64_t)res;
-    	}
-    } else if (funct3 == 0b001) {
-    	if (funct7 == 0b0000000) {
-    		// SLLW
-    		uint32_t shamt = state->regs[rs2] & 0x1F;
-    		int32_t res = (int32_t)state->regs[rs1] << shamt;
-    		state->regs[rd] = (int64_t)res;
-    	}
-    } else {
-    	unsupported("R-type", funct3);
+    switch (funct3) {
+        case 0b000:
+            switch (funct7) {
+                case 0b0000000: // add
+                    state->regs[rd] = state->regs[rs1] + state->regs[rs2];
+                    break;
+                case 0b0100000: // sub
+                    state->regs[rd] = state->regs[rs1] - state->regs[rs2];
+                    break;
+                case 0b0000001: // mul
+                    state->regs[rd] = state->regs[rs1] * state->regs[rs2];
+                    break;
+                default:
+                    unsupported("R-type", funct7);
+                    break;
+            }
+            break;
+        case 0b111: // and
+            state->regs[rd] = state->regs[rs1] & state->regs[rs2];
+            break;
+        case 0b110: // or
+            state->regs[rd] = state->regs[rs1] | state->regs[rs2];
+            break;
+        case 0b101:
+            if (funct7 == 0b0000000) {
+                state->regs[rd] = state->regs[rs1] >> state->regs[rs2]; // srl
+            } else {
+                uint32_t shamt = state->regs[rs2] & 0x1F; // SRLW
+                int32_t res = (int32_t)state->regs[rs1] >> shamt;
+                state->regs[rd] = (int64_t)res;
+            }
+            break;
+        case 0b001:
+            if (funct7 == 0b0000000) {
+                uint32_t shamt = state->regs[rs2] & 0x1F; // SLLW
+                int32_t res = (int32_t)state->regs[rs1] << shamt;
+                state->regs[rd] = (int64_t)res;
+            } else {
+                state->regs[rd] = state->regs[rs1] << state->regs[rs2]; // sll
+            }
+            break;
+        default:
+            unsupported("R-type", funct3);
+            break;
     }
 
     state->analysis.i_count++;
     state->analysis.ir_count++;
     state->pc += 4; // Next instruction
 }
+
 
 void emu_i_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
