@@ -37,9 +37,11 @@ void emu_r_type(rv_state *state, uint32_t iw) {
             }
             break;
 		case 0b100:
+			// div
 			state->regs[rd] = state->regs[rs1] / state->regs[rs2];
 			break;
-        case 0b111: // and
+        case 0b111: 
+        	// and 
             state->regs[rd] = state->regs[rs1] & state->regs[rs2];
             break;
         case 0b110: // or
@@ -55,6 +57,7 @@ void emu_r_type(rv_state *state, uint32_t iw) {
             }
             break;
         case 0b001:
+        	if (funct7 == 0b)
             if (funct7 == 0b0000000) {
                 uint32_t shamt = state->regs[rs2] & 0x1F; // SLLW
                 int32_t res = (int32_t)state->regs[rs1] << shamt;
@@ -70,7 +73,7 @@ void emu_r_type(rv_state *state, uint32_t iw) {
 
     state->analysis.i_count++;
     state->analysis.ir_count++;
-    state->pc += 4; // Next instruction
+    state->pc += 4; 
 }
 
 
@@ -179,9 +182,9 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 	if (funct3 == 0b001) { 
 		// BNE 
 		if (state->regs[rs1] != state->regs[rs2]) {
-				state->analysis.i_count++;
-				state->analysis.b_taken++;
-				state->pc += imm12;
+			state->analysis.i_count++;
+			state->analysis.b_taken++;
+			state->pc += imm12;
 		} else {
 			state->analysis.i_count++;
 			state->analysis.b_not_taken++;		
@@ -190,9 +193,9 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 	} else if (funct3 == 0b100) {
 		// BLT 
 		if ((int64_t) state->regs[rs1] < (int64_t) state->regs[rs2]) {
-				state->analysis.i_count++;
-				state->analysis.b_taken++;	
-				state->pc += imm12;
+			state->analysis.i_count++;
+			state->analysis.b_taken++;	
+			state->pc += imm12;
 		} else {
 			state->analysis.i_count++;
 			state->analysis.b_not_taken++;
@@ -224,6 +227,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 }
 
 void emu_s_type(rv_state *state, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
 	uint32_t rs1 = get_bits(iw, 15, 5);
 	uint32_t rs2 = get_bits(iw, 20, 5);
 	uint32_t funct3 = get_bits(iw, 12, 3);
