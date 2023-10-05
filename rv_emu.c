@@ -18,6 +18,7 @@ void emu_r_type(rv_state *state, uint32_t iw) {
     uint32_t rs2 = get_bits(iw, 20, 5);
     uint32_t funct3 = get_bits(iw, 12, 3);
     uint32_t funct7 = get_bits(iw, 25, 7);
+    uint32_t opcode = get_bits(iw, 0, 7);
 
     switch (funct3) {
         case 0b000:
@@ -48,22 +49,27 @@ void emu_r_type(rv_state *state, uint32_t iw) {
             state->regs[rd] = state->regs[rs1] | state->regs[rs2];
             break;
         case 0b101:
-            if (funct7 == 0b0000000) {
-                state->regs[rd] = state->regs[rs1] >> state->regs[rs2]; // srl
-            } else {
-                uint32_t shamt = state->regs[rs2] & 0x1F; // SRLW
-                int32_t res = (int32_t)state->regs[rs1] >> shamt;
-                state->regs[rd] = (int64_t)res;
-            }
+        	if (funct7 == 0b0000000 && opcode == 0b0110011) {
+        		// SRL
+        		state->regs[rd] = state->regs[rs1] >> state->regs[rs2];
+        	} else if (funct7 == 0b0000000 && opcode == 0b0111011) {
+        		// SRLW
+        		uint32_t shamt = state->regs[rs2] & 0x1F;
+        		int32_t res = (int32_t)state->regs[rs1] >> shamt;
+          		state->regs[rd] = (int64_t) res;
+        	}
             break;
         case 0b001:
-        	if (funct7 == 0b)
-            if (funct7 == 0b0000000) {
-                uint32_t shamt = state->regs[rs2] & 0x1F; // SLLW
-                int32_t res = (int32_t)state->regs[rs1] << shamt;
-                state->regs[rd] = (int64_t)res;
-            } else {
-                state->regs[rd] = state->regs[rs1] << state->regs[rs2]; // sll
+        	 if (funct7 == 0b0000000) {
+            	if (opcode == 0b0110011) {
+            		// SLL
+            		state->regs[rd] = state->regs[rs1] << state->regs[rs2];
+            	} else if (opcode == 0b0111011) {
+            		// SLLW
+            		uint32_t shamt = state->regs[rs2] & 0x1F;
+            		int32_t res = (int32_t)state->regs[rs1] << shamt;
+            		state->regs[rd] = (int64_t) res;
+            	}
             }
             break;
         default:
