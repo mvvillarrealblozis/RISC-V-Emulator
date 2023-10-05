@@ -12,7 +12,7 @@ static void unsupported(char *s, uint32_t n) {
     exit(-1);
 }
 
-void emu_r_type(struct rv_state *rsp, uint32_t iw) {
+void emu_r_type(rv_state *state, uint32_t iw) {
     uint32_t rd = get_bits(iw, 7, 5);
     uint32_t rs1 = get_bits(iw, 15, 5);
     uint32_t rs2 = get_bits(iw, 20, 5);
@@ -21,66 +21,105 @@ void emu_r_type(struct rv_state *rsp, uint32_t iw) {
 
     if (funct3 == 0b000) {
     	if (funct7 == 0b0000000) { // if its add 
-    		rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
+    		state->regs[rd] = state->regs[rs1] + state->regs[rs2];
     	} else if (funct7 == 0b0100000) { // if its sub
-    		rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
+    		state->regs[rd] = state->regs[rs1] - state->regs[rs2];
     	} else if (funct7 == 0b0000001) { // if its mul
-    		rsp->regs[rd] = rsp->regs[rs1] * rsp->regs[rs2];
+    		state->regs[rd] = state->regs[rs1] * state->regs[rs2];
     	} else {
     		unsupported("R-type", funct7);
     	}
     } else if (funct3 == 0b111){
     	//and 
-        rsp->regs[rd] = rsp->regs[rs1] & rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] & state->regs[rs2];
     } else if (funct3 == 0b110) {
     	//or 
-    	rsp->regs[rd] = rsp->regs[rs1] | rsp->regs[rs2];
+    	state->regs[rd] = state->regs[rs1] | state->regs[rs2];
     } else if (funct3 == 0b101) {
     	if (funct7 == 0b0000000) { //srl 
-    		rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
+    		state->regs[rd] = state->regs[rs1] >> state->regs[rs2];
     	}
     } else if (funct3 == 0b001) { //ssl
-    	rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];
+    	state->regs[rd] = state->regs[rs1] << state->regs[rs2];
     } else {
     	unsupported("R-type", funct3);
     }
-    rsp->pc += 4; // Next instruction
+
+    state->analysis.i_count++;
+    state->analysis.ir_count++;
+    state->pc += 4; // Next instruction
 }
 
-void emu_i_type(struct rv_state *rsp, uint32_t iw) {
+void emu_i_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
 	uint32_t rs1 = get_bits(iw, 15, 5);
 	int32_t imm12 = sign_extend(get_bits(iw, 20, 12), 11);
 	uint32_t funct3 = get_bits(iw, 12, 3);
+	
+	uint64_t ta = state->regs[rs1] + imm12;
 
-	if (funct3 == 0b101) {
-		// srli 
-		uint32_t shamt = imm12 & 0x3F;
-		rsp->regs[rd] = rsp->regs[rs1] >> shamt;
-	} else if (funct3 == 0b000) {
-		if (rs1 == 0) {
-			rsp->regs[rd] = imm12;		// li
-		} else if (imm12 == 0) {
-			rsp->regs[rd] = rsp->regs[rs1];   //mv
-		} else {
-			rsp->regs[rd] = rsp->regs[rs1] + imm12;
-		}
+
+    uint32_t opcode = get_bits(iw, 0, 7);
+
+	switch(opcode) {
+		case 0b0010011:
+			if (funct3 == 0b101) {
+					// srli 
+					uint32_t shamt = imm12 & 0x3F;
+					state->regs[rd] = state->regs[rs1] >> shamt;
+			} else if (funct3 == 0b000) {
+				if (rs1 == 0) {
+					// li
+					state->regs[rd] = imm12;
+					state->analysis.i_count++;
+					state->analysis.ir_count++;		
+				} else if (imm12 == 0) {
+					// mv 
+					state->regs[rd] = state->regs[rs1];   
+					state->analysis.i_count++;
+					state->analysis.ir_count++;	
+				} else {
+					// addi 
+					state->regs[rd] = state->regs[rs1] + imm12;
+					state->analysis.i_count++;
+					state->analysis.ir_count++;	
+				}
+			}
+		break;
+		case 0b0000011:
+				if (funct3 == 0b000) {	
+					// LB
+					state->regs[rd] = *((uint8_t *) ta);
+					state->analysis.i_count++;
+					state->analysis.ld_count++;
+				} else if (funct3 == 0b010) {
+					//LW
+					state->regs[rd] = *((uint32_t *) ta);	
+					state->analysis.i_count++;
+					state->analysis.ld_count++;	
+				} else if (funct3 == 0b011) {
+					//LD 
+					state->regs[rd] = *((uint64_t *) ta);
+					state->analysis.i_count++;
+					state->analysis.ld_count++;		
+				}
+		break;
 	}
-
-	rsp->pc += 4;
+	
+	state->pc += 4;
 }
 
-void emu_u_type(struct rv_state *rsp, uint32_t iw) {
+void emu_u_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
 
 	int32_t imm20 = sign_extend(get_bits(iw, 12, 20), 19);
 
-	rsp->regs[rd] = imm20;
+	state->regs[rd] = imm20;
 
-	rsp->pc += 4;
+	state->pc += 4;
 }
 
-void emu_j_type(struct rv_state *rsp, uint32_t iw) {
+void emu_j_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
 	int32_t imm20 = sign_extend(
 			get_bits(iw, 31, 1) << 11 |
@@ -93,14 +132,16 @@ void emu_j_type(struct rv_state *rsp, uint32_t iw) {
 	imm20 = (imm20 << 12) >> 12;
 
 	if (rd != 0) {
-		rsp->regs[rd] = rsp->pc + 4;
+		state->regs[rd] = state->pc + 4;
 	}
 
-	rsp->pc += imm20;
+	state->analysis.i_count++;
+	state->analysis.j_count++;
+	state->pc += imm20;
 }
 
 
-void emu_b_type(struct rv_state *rsp, uint32_t iw) {
+void emu_b_type(rv_state *state, uint32_t iw) {
 	uint32_t rs1 = get_bits(iw, 15, 5);
 	uint32_t rs2 = get_bits(iw, 20, 5);
 
@@ -114,27 +155,116 @@ void emu_b_type(struct rv_state *rsp, uint32_t iw) {
 		12
 	);
 	
-	if (funct3 == 0b001) { //bne 
-		if (rsp->regs[rs1] != rsp->regs[rs2]) {
-				rsp->pc += imm12;
+	if (funct3 == 0b001) { 
+		// BNE 
+		if (state->regs[rs1] != state->regs[rs2]) {
+				state->analysis.i_count++;
+				state->analysis.b_taken++;
+				state->pc += imm12;
 		} else {
-			rsp->pc += 4;
+			state->analysis.i_count++;
+			state->analysis.b_not_taken++;		
+			state->pc += 4;
 		}
-	} else if (funct3 == 0b100) { //blt
-		if ((int64_t) rsp->regs[rs1] < (int64_t) rsp->regs[rs2]) {
-				rsp->pc += imm12;
+	} else if (funct3 == 0b100) {
+		// BLT 
+		if ((int64_t) state->regs[rs1] < (int64_t) state->regs[rs2]) {
+				state->analysis.i_count++;
+				state->analysis.b_taken++;	
+				state->pc += imm12;
 		} else {
-			rsp->pc += 4;
+			state->analysis.i_count++;
+			state->analysis.b_not_taken++;
+			state->pc += 4;
+		}
+	} else if (funct3 == 0b000) {
+		// BEQ
+		if (state->regs[rs1] == state->regs[rs2]) {
+			state->analysis.i_count++;
+			state->analysis.b_taken++;
+			state->pc += imm12;
+		} else {
+			state->analysis.i_count++;
+			state->analysis.b_not_taken++;
+			state->pc += 4;
 		}
 	} 
 }
 
-
-void emu_jalr(struct rv_state *rsp, uint32_t iw) {
+void emu_s_type(rv_state *state, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
 	uint32_t rs1 = get_bits(iw, 15, 5);
-	uint64_t val = rsp->regs[rs1];
+	uint32_t rs2 = get_bits(iw, 20, 5);
+	uint32_t funct3 = get_bits(iw, 12, 3);
 
-	rsp->pc = val;
+	int64_t imm11 = sign_extend(
+			get_bits(iw, 31, 1) << 11 |
+			get_bits(iw, 7, 5) << 0 |
+			get_bits(iw, 25, 6)  << 5,
+			11
+	);
+
+	uint64_t ta = state->regs[rs2] + imm11;
+	
+	
+	if (funct3 == 0b000){
+		// SB
+		state->regs[rs1] = *((uint8_t *) ta);
+		state->analysis.i_count++;
+		state->analysis.st_count++;
+	}  else if (funct3 == 0b010) {
+		// SW
+		state->regs[rs1] = *((uint32_t *) ta);
+		state->analysis.i_count++;
+		state->analysis.st_count++;
+	} else if (funct3 == 0b011) {
+		// SD 
+		state->regs[rs1] = *((uint64_t *) ta);
+		state->analysis.i_count++;
+		state->analysis.st_count++;
+	}
+
+	state->pc += 4;
+}
+
+void emu_l_type(rv_state *state, uint32_t iw) {
+	uint32_t rd = get_bits(iw, 7, 5);
+	uint32_t rs1 = get_bits(iw, 15, 5);
+	uint32_t funct3 = get_bits(iw, 12, 3);
+	int32_t imm12 = sign_extend(get_bits(iw, 20, 12), 11);
+	uint64_t ta = state->regs[rs1] + imm12;
+	
+
+	if (funct3 == 0b000) {	
+		// LB
+		rd = *((uint8_t *) ta);
+		state->regs[rd] = *((uint8_t *) ta);
+		state->analysis.i_count++;
+		state->analysis.ld_count++;
+	} else if (funct3 == 0b010) {
+		//LW
+		rd = *((uint32_t *) ta);
+		state->regs[rd] = *((uint32_t *) ta);	
+		state->analysis.i_count++;
+		state->analysis.ld_count++;	
+	} else if (funct3 == 0b011) {
+		//LD 
+		rd = *((uint8_t *) ta);
+		state->regs[rd] = *((uint64_t *) ta);
+		state->analysis.i_count++;
+		state->analysis.ld_count++;		
+	}
+
+	state->pc += 4;
+
+}
+
+void emu_jalr(rv_state *state, uint32_t iw) {
+	uint32_t rs1 = get_bits(iw, 15, 5);
+	uint64_t val = state->regs[rs1];
+	state->analysis.i_count++;
+	state->analysis.j_count++;
+	state->pc = val;
 }
 
 static void rv_one(rv_state *state) {
@@ -151,23 +281,34 @@ static void rv_one(rv_state *state) {
     switch (opcode) {
         case 0b0110011:
             // R-type instructions have two register operands
-            emu_r_type(rsp, iw);
+            emu_r_type(state, iw);
             break;
         case 0b1100111:
             // JALR (aka RET) is a variant of I-type instructions
-            emu_jalr(rsp, iw);
+            emu_jalr(state, iw);
             break;
-        case 0b0010011:
-        	emu_i_type(rsp, iw);
+        case 0b0010011:	
+        	// I-type instructions
+        	emu_i_type(state, iw);
+        	break;
+        case 0b0000011:
+        	emu_i_type(state, iw);
         	break;
         case 0b0110111:
-        	emu_u_type(rsp, iw);
+        	// U-type instructions 
+        	emu_u_type(state, iw);
         	break;
         case 0b1101111:
-        	emu_j_type(rsp, iw);
+        	// J-type instructions 
+        	emu_j_type(state, iw);
         	break;
         case 0b1100011:
-        	emu_b_type(rsp, iw);
+        	// B-type instructions 
+        	emu_b_type(state, iw);
+        	break;
+        case 0b0100011:
+        	// S-type instructions
+        	emu_s_type(state, iw);
         	break;
         default:
             unsupported("Unknown opcode: ", opcode);
