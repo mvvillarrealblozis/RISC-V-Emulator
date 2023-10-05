@@ -41,6 +41,20 @@ void emu_r_type(rv_state *state, uint32_t iw) {
     	}
     } else if (funct3 == 0b001) { //ssl
     	state->regs[rd] = state->regs[rs1] << state->regs[rs2];
+    } else if (funct3 == 0b101) {
+    	if (funct7 == 0b0000000) {
+    		// SRLW
+    		uint32_t shamt = state->regs[rs2] & 0x1F;
+    		int32_t res = (int32_t)state->regs[rs1] >> shamt;
+    		state->regs[rd] = (int64_t)res;
+    	}
+    } else if (funct3 == 0b001) {
+    	if (funct7 == 0b0000000) {
+    		// SLLW
+    		uint32_t shamt = state->regs[rs2] & 0x1F;
+    		int32_t res = (int32_t)state->regs[rs1] << shamt;
+    		state->regs[rd] = (int64_t)res;
+    	}
     } else {
     	unsupported("R-type", funct3);
     }
@@ -121,14 +135,12 @@ void emu_u_type(rv_state *state, uint32_t iw) {
 void emu_j_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
 	int32_t imm20 = sign_extend(
-			get_bits(iw, 31, 1) << 11 |
-			get_bits(iw, 7, 1) << 6 |
-			get_bits(iw, 25, 6) << 4 |
-			get_bits(iw, 8, 4),
-			11
+			get_bits(iw, 31, 1) << 20 |
+			get_bits(iw, 21, 10) << 1 |
+			get_bits(iw, 20, 1) << 11 |
+			get_bits(iw, 12, 8)  << 12,
+			20
 	);
-
-	imm20 = (imm20 << 12) >> 12;
 
 	if (rd != 0) {
 		state->regs[rd] = state->pc + 4;
@@ -179,6 +191,16 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 	} else if (funct3 == 0b000) {
 		// BEQ
 		if (state->regs[rs1] == state->regs[rs2]) {
+			state->analysis.i_count++;
+			state->analysis.b_taken++;
+			state->pc += imm12;
+		} else {
+			state->analysis.i_count++;
+			state->analysis.b_not_taken++;
+			state->pc += 4;
+		}
+	} else if (funct3 == 0b101) {
+		if (state->regs[rs1] >= state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;
 			state->pc += imm12;
