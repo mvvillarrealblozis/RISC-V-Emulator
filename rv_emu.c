@@ -58,7 +58,6 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 	
 	uint64_t ta = state->regs[rs1] + imm12;
 
-
     uint32_t opcode = get_bits(iw, 0, 7);
 
 	switch(opcode) {
@@ -89,17 +88,17 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 		case 0b0000011:
 				if (funct3 == 0b000) {	
 					// LB
-					state->regs[rd] = *((uint8_t *) ta);
+					state->regs[rd] = sign_extend(*((int8_t *) ta), 7);
 					state->analysis.i_count++;
 					state->analysis.ld_count++;
 				} else if (funct3 == 0b010) {
 					//LW
-					state->regs[rd] = *((uint32_t *) ta);	
+					state->regs[rd] = *((int32_t *) ta);	
 					state->analysis.i_count++;
 					state->analysis.ld_count++;	
 				} else if (funct3 == 0b011) {
 					//LD 
-					state->regs[rd] = *((uint64_t *) ta);
+					state->regs[rd] = *((int64_t *) ta);
 					state->analysis.i_count++;
 					state->analysis.ld_count++;		
 				}
@@ -192,7 +191,6 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 }
 
 void emu_s_type(rv_state *state, uint32_t iw) {
-	uint32_t rd = get_bits(iw, 7, 5);
 	uint32_t rs1 = get_bits(iw, 15, 5);
 	uint32_t rs2 = get_bits(iw, 20, 5);
 	uint32_t funct3 = get_bits(iw, 12, 3);
@@ -204,22 +202,22 @@ void emu_s_type(rv_state *state, uint32_t iw) {
 			11
 	);
 
-	uint64_t ta = state->regs[rs2] + imm11;
+	uint64_t ta = state->regs[rs1] + imm11;
 	
 	
 	if (funct3 == 0b000){
 		// SB
-		state->regs[rs1] = *((uint8_t *) ta);
+		*((uint8_t *) ta) = state->regs[rs2];
 		state->analysis.i_count++;
 		state->analysis.st_count++;
 	}  else if (funct3 == 0b010) {
 		// SW
-		state->regs[rs1] = *((uint32_t *) ta);
+		*((uint32_t *) ta) = state->regs[rs2];
 		state->analysis.i_count++;
 		state->analysis.st_count++;
 	} else if (funct3 == 0b011) {
 		// SD 
-		state->regs[rs1] = *((uint64_t *) ta);
+		*((uint64_t *) ta) = state->regs[rs2];
 		state->analysis.i_count++;
 		state->analysis.st_count++;
 	}
@@ -227,37 +225,6 @@ void emu_s_type(rv_state *state, uint32_t iw) {
 	state->pc += 4;
 }
 
-void emu_l_type(rv_state *state, uint32_t iw) {
-	uint32_t rd = get_bits(iw, 7, 5);
-	uint32_t rs1 = get_bits(iw, 15, 5);
-	uint32_t funct3 = get_bits(iw, 12, 3);
-	int32_t imm12 = sign_extend(get_bits(iw, 20, 12), 11);
-	uint64_t ta = state->regs[rs1] + imm12;
-	
-
-	if (funct3 == 0b000) {	
-		// LB
-		rd = *((uint8_t *) ta);
-		state->regs[rd] = *((uint8_t *) ta);
-		state->analysis.i_count++;
-		state->analysis.ld_count++;
-	} else if (funct3 == 0b010) {
-		//LW
-		rd = *((uint32_t *) ta);
-		state->regs[rd] = *((uint32_t *) ta);	
-		state->analysis.i_count++;
-		state->analysis.ld_count++;	
-	} else if (funct3 == 0b011) {
-		//LD 
-		rd = *((uint8_t *) ta);
-		state->regs[rd] = *((uint64_t *) ta);
-		state->analysis.i_count++;
-		state->analysis.ld_count++;		
-	}
-
-	state->pc += 4;
-
-}
 
 void emu_jalr(rv_state *state, uint32_t iw) {
 	uint32_t rs1 = get_bits(iw, 15, 5);
