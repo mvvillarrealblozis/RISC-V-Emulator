@@ -5,7 +5,7 @@
 #include "rv_emu.h"
 #include "bits.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 static void unsupported(char *s, uint32_t n) {
     printf("unsupported %s 0x%x\n", s, n);
@@ -55,8 +55,8 @@ void emu_r_type(rv_state *state, uint32_t iw) {
         	} else if (funct7 == 0b0000000 && opcode == 0b0111011) {
         		// SRLW
         		uint32_t shamt = state->regs[rs2] & 0x1F;
-        		int32_t res = (int32_t)state->regs[rs1] >> shamt;
-          		state->regs[rd] = (int64_t) res;
+        		int32_t res = (uint32_t)state->regs[rs1] >> shamt;
+          		state->regs[rd] = (int32_t) res;
         	}
             break;
         case 0b001:
@@ -67,8 +67,8 @@ void emu_r_type(rv_state *state, uint32_t iw) {
             	} else if (opcode == 0b0111011) {
             		// SLLW
             		uint32_t shamt = state->regs[rs2] & 0x1F;
-            		int32_t res = (int32_t)state->regs[rs1] << shamt;
-            		state->regs[rd] = (int64_t) res;
+            		int32_t res = (uint32_t)state->regs[rs1] << shamt;
+            		state->regs[rd] = (int32_t) res;
             	}
             }
             break;
