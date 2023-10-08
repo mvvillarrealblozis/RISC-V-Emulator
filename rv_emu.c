@@ -5,7 +5,7 @@
 #include "rv_emu.h"
 #include "bits.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 static void unsupported(char *s, uint32_t n) {
     printf("unsupported %s 0x%x\n", s, n);
@@ -22,25 +22,41 @@ void emu_r_type(rv_state *state, uint32_t iw) {
 
     if (funct3 == 0b000 && funct7 == 0b0000000) {
         // ADD
-        rsp->regs[rd] = rsp->regs[rs1] + rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] + state->regs[rs2];
     } else if (funct3 == 0b000 && funct7 == 0b0000001) {
         // MUL
-        rsp->regs[rd] = rsp->regs[rs1] * rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] * state->regs[rs2];
     } else if (funct3 == 0b000 && funct7 == 0b0100000) {
         // SUB
-        rsp->regs[rd] = rsp->regs[rs1] - rsp->regs[rs2];
-    } else if (funct3 == 0b001 && funct7 == 0b0000000) {
+        state->regs[rd] = state->regs[rs1] - state->regs[rs2];
+    } else if (funct3 == 0b100 && funct7 == 0b0000001) {
+    	// DIV
+    	state->regs[rd] = state->regs[rs1] / state->regs[rs2];
+    } else if (funct3 == 0b001 && funct7 == 0b0000000 && opcode == 0b0110011) {
         // SLL
-        rsp->regs[rd] = rsp->regs[rs1] << rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] << state->regs[rs2];
+    } else if (funct3 == 0b001 && funct7 == 0b0000000 && opcode == 0b0111011) {
+    	// SLLW 
+    	uint32_t shamt = state->regs[rs2] & 0x1F;
+    	int32_t res = (uint32_t)state->regs[rs1] << shamt;
+    	state->regs[rd] = (int32_t) res;
     } else if (funct3 == 0b101 && funct7 == 0b0000000) {
         // SRL
-        rsp->regs[rd] = rsp->regs[rs1] >> rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] >> state->regs[rs2];
+    } else if (funct3 == 0b101 && funct7 == 0b0000000 && opcode == 0b0111011) {
+    	//SRLW 
+    	uint32_t shamt = state->regs[rs2] & 0x1F;
+    	int32_t res = (uint32_t)state->regs[rs1] >> shamt;
+    	state->regs[rd] = (int32_t) res;
     } else if (funct3 == 0b101 && funct7 == 0b0100000) {
         // SRA
-        rsp->regs[rd] = ((int64_t) rsp->regs[rs1]) >> rsp->regs[rs2];
+        state->regs[rd] = ((int64_t) state->regs[rs1]) >> state->regs[rs2];
     } else if (funct3 == 0b111 && funct7 == 0b0000000) {
         // AND
-        rsp->regs[rd] = rsp->regs[rs1] & rsp->regs[rs2];
+        state->regs[rd] = state->regs[rs1] & state->regs[rs2];
+    } else if (funct3 == 0b110 && funct7 == 0b0000000) {
+    	// OR 
+    	state->regs[rd] = state->regs[rs1] | state->regs[rs2];
     } else {
         unsupported("R-type funct3", funct3);
     }
@@ -57,25 +73,56 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 	uint32_t rs1 = get_bits(iw, 15, 5);
 	int32_t imm12 = sign_extend(get_bits(iw, 20, 12), 11);
 	uint32_t funct3 = get_bits(iw, 12, 3);
-	
+	uint32_t funct7 = get_bits(iw, 25, 7);
+	//uint32_t shamt = get_bits(iw, 20, 6);
+
 	uint64_t ta = state->regs[rs1] + imm12;
 
 	uint32_t opcode = get_bits(iw, 0, 7);
 	
-	if (funct3 == 0b000) {
-		// ADDI
-		rsp->regs[rd] = rsp->regs[rs1] + imm;
-	} else if (funct3 == 0b001 && funct7 == 0b0000000) {
-		// SLLI
-		rsp->regs[rd] = rsp->regs[rs1] << shamt;
-	} else if (funct3 == 0b101 && funct7 == 0b0000000) {
-		// SRLI
-		rsp->regs[rd] = rsp->regs[rs1] >> shamt;
-	} else if (funct3 == 0b101 && funct7 == 0b0100000) {
-		// SRAI
-		rsp->regs[rd] = ((int64_t) rsp->regs[rs1]) >> shamt;
-	} else {
-		unsupported("i format funct3", funct3);
+	switch(opcode) {
+		case 0b0010011:
+			if (funct3 == 0b101) {
+				// SRLI 
+				uint32_t shamt = imm12 & 0x3F;
+				state->regs[rd] = state->regs[rs1] >> shamt;
+			} else if (funct3 = 0b000) {
+				if (rs1 == 0) {
+					// LI
+					state->regs[rd] = imm12;
+					state->analysis.i_count++;
+					state->analysis.ir_count++;
+				} else if (imm12 == 0) {
+					// MV 
+					state->regs[rd] = state->regs[rs1];
+					state->analysis.i_count++;
+					state->analysis.ir_count++;
+				} else {
+					// ADDI 
+					state->regs[rd] = state->regs[rs1] + imm12;
+					state->analysis.i_count++;
+					state->analysis.ir_count++;
+				}
+			}
+		break;
+		case 0b0000011:
+			if (funct3 == 0b000) {
+				// LB
+				state->regs[rd] = sign_extend(*((int8_t *) ta), 7);
+				state->analysis.i_count++;
+				state->analysis.ld_count++;
+			} else if (funct3 == 0b010) {
+				// LW 
+				state->regs[rd] = *((int32_t *) ta);
+				state->analysis.i_count++;
+				state->analysis.ld_count++;
+			} else if (funct3 == 0b011) {
+				// LD 
+				state->regs[rd] = *((int32_t *) ta);
+				state->analysis.i_count++;
+				state->analysis.ld_count++;
+			}
+		break;
 	}
 	
 	state->pc += 4;
