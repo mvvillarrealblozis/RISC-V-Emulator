@@ -5,7 +5,7 @@
 #include "rv_emu.h"
 #include "bits.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 static void unsupported(char *s, uint32_t n) {
     printf("unsupported %s 0x%x\n", s, n);
