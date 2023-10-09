@@ -12,6 +12,7 @@
 
 */
 
+.align 4
 sort_s:                     # prologue
     addi sp, sp, -40        # allocate stack space
     sd ra, (sp)             # save return addr

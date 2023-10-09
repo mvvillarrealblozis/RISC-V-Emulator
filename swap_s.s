@@ -5,7 +5,7 @@
     a1 - int i
     a2 - int j
 */
-
+.align 4
 swap_s:
     li t0, 4
     mul t1, a1, t0

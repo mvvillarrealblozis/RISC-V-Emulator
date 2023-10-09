@@ -74,6 +74,18 @@ void cache_print(struct cache_st *csp, char *name) {
     printf("%% Used        = %.2f%%\n", ((double) num_slots_used / (double) csp->size) * 100.0);    
 }
 
+struct cache_slot_st* find_lru_slot(struct cache_st *csp, int set_base) {
+	struct cache_slot_st *lru_slot = &csp->slots[set_base];
+
+	for (int i = 1; i <csp->ways; i++) {
+		if (csp->slots[set_base + i].timestamp < lru_slot->timestamp) {
+			lru_slot = &csp->slots[set_base + i];
+		}
+	}
+
+	return lru_slot;
+}
+
 // Direct mapped lookup
 uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     uint64_t tag;
@@ -179,14 +191,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             verbose("  cache tag (%X) miss for set %d tag %X addr %X (fill invalid slot)\n", slot->tag, set_index, tag, addr);
             csp->misses_cold += 1;
         } else {
-            // Use LRU policy to evict a slot
-            struct cache_slot_st *lru_slot = &csp->slots[set_base];
-            for (int i = 1; i < csp->ways; i++) {
-                if (csp->slots[set_base + 1].timestamp < lru_slot->timestamp) {
-                    lru_slot = &csp->slots[set_base + 1];
-                }
-            }
-            slot = lru_slot;
+            slot = find_lru_slot(csp, set_base);
             verbose("  cache tag (%X) miss for set %d tag %X addr %X (evict address %X)\n", slot->tag, set_index, tag, addr, ((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
             csp->misses += 1;
             csp->misses_hot += 1;
