@@ -82,42 +82,49 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     struct cache_slot_st *slot;
     uint32_t data = 0;
 
-	b_index = (addr >> 2) & csp->block_mask;
+    // Calculate the block index from the address
+    b_index = (addr >> 2) & csp->block_mask;
+    
+    // Calculate the cache index from the address
     index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
+    
+    // Calculate the tag from the address
     tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
+    // Get the cache slot corresponding to the index
     slot = &csp->slots[index];
 
+    // Increment the reference count
     csp->refs += 1;
+    
+    // Check if the slot is valid and the tag matches
     if (slot->valid && (slot->tag == tag)) {
-        // hit
+        // Cache hit
         csp->hits += 1;
-        //data = slot->block[b_index];
-
-        verbose("  cache tag hit for index %d tag %X addr %lX\n",
-                index, tag, addr);
-
+        verbose("  cache tag hit for index %d tag %X addr %lX\n", index, tag, addr);
     } else {
-        // miss
+        // Cache miss
         csp->misses += 1;
         if (slot->valid == 0) {
+            // Cold miss (slot was not previously used)
             csp->misses_cold += 1;
-            verbose("  cache tag (%X) miss for index %d tag %X addr %X (cold)\n",
-                    slot->tag, index, tag, addr);
+            verbose("  cache tag (%X) miss for index %d tag %X addr %X (cold)\n", slot->tag, index, tag, addr);
         } else {
+            // Hot miss (slot was previously used but with a different tag)
             csp->misses_hot += 1;
-            verbose("  cache tag (%X) miss for index %d tag %X addr %X (hot)\n",
-                    slot->tag, index, tag, addr);
-            
+            verbose("  cache tag (%X) miss for index %d tag %X addr %X (hot)\n", slot->tag, index, tag, addr);
         }
+        // Update the slot with the new tag
         slot->valid = 1;
         slot->tag = tag;
 
+        // Load the block into the cache slot
         for (int i = 0; i < csp->block_size; i++) {
-        	slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
+            slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
         }
     }
 
+    // Return the data from the block
     data = slot->block[b_index];
     return data;
 }
@@ -126,26 +133,26 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     bool hit = false;
     uint32_t value;
 
-    // Didn't allocate any cache. I guess that's a miss?
-    // This should not happen in our code as we don't simulate unless
-    // cache_size > 0
-
+    // If cache size is zero, return a miss
     if (0 == csp->size) {
         csp->misses += 1;
         return *((uint32_t *) addr);
     }
 
+    // Increment the reference count
     csp->refs += 1;
 
+    // Calculate the tag from the address
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
+    // Calculate the block index from the address
     uint64_t b_index = 1; // Need to change for block size > 1
 
+    // Calculate the set index from the address
     int set_index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
     int set_base = set_index * csp->ways;
 
     struct cache_slot_st *slot = NULL;
-    //struct cache_slot_st *slot_found = NULL;
     struct cache_slot_st *slot_invalid = NULL;
 
     // Check each slot in the set
@@ -153,10 +160,9 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         slot = &csp->slots[set_base + i];
         if (slot->valid) {
             if (tag == slot->tag) {
-                verbose("  cache tag hit for set %d way %d tag %X addr %lX\n",
-                        set_index, i, tag, addr);
+                // Cache hit
+                verbose("  cache tag hit for set %d way %d tag %X addr %lX\n", set_index, i, tag, addr);
                 hit = true;
-                //slot_found = slot;
                 csp->hits++;
                 break;
             }
@@ -168,37 +174,32 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
 
     if (!hit) {
         if (slot_invalid) {
+            // Use the invalid slot for the new data
             slot = slot_invalid;
-            verbose("  cache tag (%X) miss for set %d tag %X addr %X (fill invalid slot)\n",
-                    slot->tag, set_index, tag, addr);
-            // Miss due to tag collision is a "hot" miss
+            verbose("  cache tag (%X) miss for set %d tag %X addr %X (fill invalid slot)\n", slot->tag, set_index, tag, addr);
             csp->misses_cold += 1;
         } else {
-            // Always pick first slot in set - CHANGE TO LRU
-			struct cache_slot_st *lru_slot = &csp->slots[set_base];
-			for (int i = 1; i < csp->ways; i++) {
-				if (csp->slots[set_base + 1].timestamp < lru_slot->timestamp) {
-					lru_slot = &csp->slots[set_base + 1];
-				}
-			}
-			slot = lru_slot;
-			
-            verbose("  cache tag (%X) miss for set %d tag %X addr %X (evict address %X)\n",
-                    slot->tag, set_index, tag, addr, 
-                    ((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
-
+            // Use LRU policy to evict a slot
+            struct cache_slot_st *lru_slot = &csp->slots[set_base];
+            for (int i = 1; i < csp->ways; i++) {
+                if (csp->slots[set_base + 1].timestamp < lru_slot->timestamp) {
+                    lru_slot = &csp->slots[set_base + 1];
+                }
+            }
+            slot = lru_slot;
+            verbose("  cache tag (%X) miss for set %d tag %X addr %X (evict address %X)\n", slot->tag, set_index, tag, addr, ((slot->tag << (csp->index_bits + 2)) | (set_index << 2)));
             csp->misses += 1;
-            // Miss due to tag collision is a "hot" miss
             csp->misses_hot += 1;
         }
+        // Update the slot with the new tag and data
         for (int i = 0; i < csp->block_size; i++) {
-           	slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
-        	}
+            slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
+        }
         slot->tag = tag;
         slot->valid = true;
     }
 
-
+    // Return the data from the block
     value = slot->block[b_index];        
     slot->timestamp = csp->refs;
     return value;
