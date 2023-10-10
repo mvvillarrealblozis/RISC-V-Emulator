@@ -71,13 +71,13 @@ void cache_print(struct cache_st *csp, char *name) {
            ((double) csp->misses / (double) csp->refs) * 100.00);    
     printf("Misses (cold) = %d\n", csp->misses_cold);
     printf("Misses (hot)  = %d\n", csp->misses_hot);
-    printf("%% Used        = %.2f%%\n", ((double) num_slots_used / (double) csp->size) * 100.0);    
+    printf("%% Used        = %.2f%%\n", ((double) num_slots_used / (double) num_slots) * 100.0);    
 }
 
 struct cache_slot_st* find_lru_slot(struct cache_st *csp, int set_base) {
 	struct cache_slot_st *lru_slot = &csp->slots[set_base];
 
-	for (int i = 1; i <csp->ways; i++) {
+	for (int i = 1; i < csp->ways; i++) {
 		if (csp->slots[set_base + i].timestamp < lru_slot->timestamp) {
 			lru_slot = &csp->slots[set_base + i];
 		}
@@ -132,7 +132,21 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
 
         // Load the block into the cache slot
         for (int i = 0; i < csp->block_size; i++) {
-            slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
+        	// shift block mask by 2 (or mult by 4)
+			uint64_t shifted = csp->block_mask << 2;
+
+			// invert shifted block mask 
+			uint64_t inverted = ~shifted;
+
+			// align address by masking it with inverted block mask
+			uint64_t aligned = addr & inverted;
+
+			// calc offset by adding i and 4 
+			// moves forward by i 32 bit words in mem 
+			uint32_t *add_ptr = (uint32_t *)aligned;
+
+			//update slot block at i
+			slot->block[i] = add_ptr[i];
         }
     }
 
@@ -158,7 +172,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
     uint64_t tag = addr >> (csp->index_bits + csp->block_bits + 2);
 
     // Calculate the block index from the address
-    uint64_t b_index = 1; // Need to change for block size > 1
+    uint64_t b_index = (addr >> 2) & csp->block_mask;
 
     // Calculate the set index from the address
     int set_index = (addr >> (csp->block_bits + 2)) & csp->index_mask;
@@ -189,6 +203,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             // Use the invalid slot for the new data
             slot = slot_invalid;
             verbose("  cache tag (%X) miss for set %d tag %X addr %X (fill invalid slot)\n", slot->tag, set_index, tag, addr);
+			csp->misses += 1;
             csp->misses_cold += 1;
         } else {
             slot = find_lru_slot(csp, set_base);
@@ -198,8 +213,23 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
         }
         // Update the slot with the new tag and data
         for (int i = 0; i < csp->block_size; i++) {
-            slot->block[i] = *((uint32_t *)(addr & ~(csp->block_mask << 2)) + i);
-        }
+	       	// shift block mask by 2 (or mult by 4)
+			uint64_t shifted = csp->block_mask << 2;
+
+			// invert shifted block mask 
+			uint64_t inverted = ~shifted;
+
+			// align address by masking it with inverted block mask
+			uint64_t aligned = addr & inverted;
+
+			// calc offset by adding i and 4 
+			// moves forward by i 32 bit words in mem 
+			uint32_t *add_ptr = (uint32_t *)aligned;
+
+			//update slot block at i
+			slot->block[i] = add_ptr[i];
+        }  
+        
         slot->tag = tag;
         slot->valid = true;
     }
