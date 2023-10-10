@@ -119,22 +119,22 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 	switch(opcode) {
 		case 0b0010011:
 			if (funct3 == 0b101) {
-					// srli 
+					// SRLI
 					uint32_t shamt = imm12 & 0x3F;
 					state->regs[rd] = state->regs[rs1] >> shamt;
 			} else if (funct3 == 0b000) {
 				if (rs1 == 0) {
-					// li
+					// LI
 					state->regs[rd] = imm12;
 					state->analysis.i_count++;
 					state->analysis.ir_count++;		
 				} else if (imm12 == 0) {
-					// mv 
+					// MV
 					state->regs[rd] = state->regs[rs1];   
 					state->analysis.i_count++;
 					state->analysis.ir_count++;	
 				} else {
-					// addi 
+					// ADDI
 					state->regs[rd] = state->regs[rs1] + imm12;
 					state->analysis.i_count++;
 					state->analysis.ir_count++;	
@@ -148,7 +148,6 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 				} else if (funct3 == 0b010) {
 					//LW
 					state->regs[rd] = *((uint32_t*) ta);	
-					
 				} else if (funct3 == 0b011) {
 					//LD 
 					state->regs[rd] = *((uint64_t*) ta);
@@ -208,7 +207,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 	);
 	
 	if (funct3 == 0b001) { 
-		// BNE 
+			// BNE 
 		if (state->regs[rs1] != state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;
@@ -219,7 +218,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b100) {
-		// BLT 
+			// BLT 
 		if ((int64_t) state->regs[rs1] < (int64_t) state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;	
@@ -230,7 +229,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b000) {
-		// BEQ
+			// BEQ
 		if (state->regs[rs1] == state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;
@@ -241,7 +240,8 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b101) {
-		// BGE
+			// BGE
+			// BGE
 		if (state->regs[rs1] >= state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;

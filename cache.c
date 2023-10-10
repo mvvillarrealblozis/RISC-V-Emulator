@@ -132,20 +132,20 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
 
         // Load the block into the cache slot
         for (int i = 0; i < csp->block_size; i++) {
-        	// shift block mask by 2 (or mult by 4)
+        	// Shift block mask by 2 (or mult by 4)
 			uint64_t shifted = csp->block_mask << 2;
 
-			// invert shifted block mask 
+			// Invert shifted block mask 
 			uint64_t inverted = ~shifted;
 
-			// align address by masking it with inverted block mask
+			// Align address by masking it with inverted block mask
 			uint64_t aligned = addr & inverted;
 
-			// calc offset by adding i and 4 
-			// moves forward by i 32 bit words in mem 
+			// Calc offset by adding i and 4 
+			// Moves forward by i 32 bit words in mem 
 			uint32_t *add_ptr = (uint32_t *)aligned;
 
-			//update slot block at i
+			// Update slot block at i
 			slot->block[i] = add_ptr[i];
         }
     }
@@ -211,22 +211,23 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             csp->misses += 1;
             csp->misses_hot += 1;
         }
+        
         // Update the slot with the new tag and data
         for (int i = 0; i < csp->block_size; i++) {
-	       	// shift block mask by 2 (or mult by 4)
+	       	// Shift block mask by 2 (or mult by 4)
 			uint64_t shifted = csp->block_mask << 2;
 
-			// invert shifted block mask 
+			// Invert shifted block mask 
 			uint64_t inverted = ~shifted;
 
-			// align address by masking it with inverted block mask
+			// Align address by masking it with inverted block mask
 			uint64_t aligned = addr & inverted;
 
-			// calc offset by adding i and 4 
-			// moves forward by i 32 bit words in mem 
+			// Calc offset by adding i and 4 
+			// Moves forward by i 32 bit words in mem 
 			uint32_t *add_ptr = (uint32_t *)aligned;
 
-			//update slot block at i
+			// Update slot block at i
 			slot->block[i] = add_ptr[i];
         }  
         
