@@ -130,24 +130,15 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         slot->valid = 1;
         slot->tag = tag;
 
-        // Load the block into the cache slot
+        uint64_t addr_word = addr / 4;
+        b_index = addr_word % csp->block_size;
+        uint64_t b_base = addr_word - b_index;
+        uint64_t b_byte = b_base * 4;
+
         for (int i = 0; i < csp->block_size; i++) {
-        	// Shift block mask by 2 (or mult by 4)
-			uint64_t shifted = csp->block_mask << 2;
-
-			// Invert shifted block mask 
-			uint64_t inverted = ~shifted;
-
-			// Align address by masking it with inverted block mask
-			uint64_t aligned = addr & inverted;
-
-			// Calc offset by adding i and 4 
-			// Moves forward by i 32 bit words in mem 
-			uint32_t *add_ptr = (uint32_t *)aligned;
-
-			// Update slot block at i
-			slot->block[i] = add_ptr[i];
+        	slot->block[i] = *((uint32_t *)(b_byte + (i * 4)));
         }
+        
     }
 
     // Return the data from the block
@@ -212,24 +203,14 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             csp->misses_hot += 1;
         }
         
-        // Update the slot with the new tag and data
+        uint64_t addr_word = addr / 4;
+        b_index = addr_word % csp->block_size;
+        uint64_t b_base = addr_word - b_index;
+        uint64_t b_byte = b_base * 4;
+
         for (int i = 0; i < csp->block_size; i++) {
-	       	// Shift block mask by 2 (or mult by 4)
-			uint64_t shifted = csp->block_mask << 2;
-
-			// Invert shifted block mask 
-			uint64_t inverted = ~shifted;
-
-			// Align address by masking it with inverted block mask
-			uint64_t aligned = addr & inverted;
-
-			// Calc offset by adding i and 4 
-			// Moves forward by i 32 bit words in mem 
-			uint32_t *add_ptr = (uint32_t *)aligned;
-
-			// Update slot block at i
-			slot->block[i] = add_ptr[i];
-        }  
+        	slot->block[i] = *((uint32_t *)(b_byte + (i * 4)));
+        }
         
         slot->tag = tag;
         slot->valid = true;
