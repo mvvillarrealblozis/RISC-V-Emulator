@@ -205,32 +205,38 @@ void emu_b_type(rv_state *state, uint32_t iw) {
         12
     );
 
-    bool shouldBranch = false; // Boolean to decide if we should branch
+    bool branch = false; 
 
     switch(funct3) {
-        case 0b001:  // BNE 
-            shouldBranch = state->regs[rs1] != state->regs[rs2];
+    	// BNE
+        case 0b001:  
+            branch = state->regs[rs1] != state->regs[rs2];
             break;
-        case 0b100:  // BLT 
-            shouldBranch = (int64_t) state->regs[rs1] < (int64_t) state->regs[rs2];
+        // BLT
+        case 0b100: 
+            branch = (int64_t) state->regs[rs1] < (int64_t) state->regs[rs2];
             break;
-        case 0b000:  // BEQ
-            shouldBranch = state->regs[rs1] == state->regs[rs2];
+        // BEQ
+        case 0b000:
+            branch = state->regs[rs1] == state->regs[rs2];
             break;
-        case 0b101:  // BGE
-            shouldBranch = state->regs[rs1] >= state->regs[rs2];
+        // BGE
+        case 0b101:
+            branch = state->regs[rs1] >= state->regs[rs2];
             break;
         default:
-            break;  // For other cases, branching is false by default
+            break; 
     }
 
+
     state->analysis.i_count++;
-    if(shouldBranch) {
+    
+    if(branch) {
         state->analysis.b_taken++;
-        state->pc += imm12;  // Take the branch
+        state->pc += imm12; 
     } else {
         state->analysis.b_not_taken++;
-        state->pc += 4;  // Move to the next instruction
+        state->pc += 4;
     }
 }
 
