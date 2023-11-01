@@ -241,7 +241,6 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 		}
 	} else if (funct3 == 0b101) {
 			// BGE
-			// BGE
 		if (state->regs[rs1] >= state->regs[rs2]) {
 			state->analysis.i_count++;
 			state->analysis.b_taken++;
