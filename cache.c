@@ -86,6 +86,17 @@ struct cache_slot_st* find_lru_slot(struct cache_st *csp, int set_base) {
 	return lru_slot;
 }
 
+void load_block(struct cache_st *csp, struct cache_slot_st *slot, uint64_t addr) {
+	 uint64_t addr_word = addr / 4;
+     uint64_t b_index = addr_word % csp->block_size;
+     uint64_t b_base = addr_word - b_index;
+     uint64_t b_byte = b_base * 4;
+
+     for (int i = 0; i < csp->block_size; i++) {
+     	slot->block[i] = *((uint32_t *)(b_byte + (i * 4)));
+     }
+}
+
 // Direct mapped lookup
 uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
     uint64_t tag;
@@ -130,14 +141,7 @@ uint32_t cache_lookup_dm(struct cache_st *csp, uint64_t addr) {
         slot->valid = 1;
         slot->tag = tag;
 
-        uint64_t addr_word = addr / 4;
-        b_index = addr_word % csp->block_size;
-        uint64_t b_base = addr_word - b_index;
-        uint64_t b_byte = b_base * 4;
-
-        for (int i = 0; i < csp->block_size; i++) {
-        	slot->block[i] = *((uint32_t *)(b_byte + (i * 4)));
-        }
+       	load_block(csp, slot, addr);
         
     }
 
@@ -203,14 +207,7 @@ uint32_t cache_lookup_sa(struct cache_st *csp, uint64_t addr) {
             csp->misses_hot += 1;
         }
         
-        uint64_t addr_word = addr / 4;
-        b_index = addr_word % csp->block_size;
-        uint64_t b_base = addr_word - b_index;
-        uint64_t b_byte = b_base * 4;
-
-        for (int i = 0; i < csp->block_size; i++) {
-        	slot->block[i] = *((uint32_t *)(b_byte + (i * 4)));
-        }
+        load_block(csp, slot, addr);
         
         slot->tag = tag;
         slot->valid = true;
