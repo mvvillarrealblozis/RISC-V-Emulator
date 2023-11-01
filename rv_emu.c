@@ -119,9 +119,9 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 	switch(opcode) {
 		case 0b0010011:
 			if (funct3 == 0b101) {
-					// SRLI
-					uint32_t shamt = imm12 & 0x3F;
-					state->regs[rd] = state->regs[rs1] >> shamt;
+				// SRLI
+				uint32_t shamt = imm12 & 0x3F;
+				state->regs[rd] = state->regs[rs1] >> shamt;
 			} else if (funct3 == 0b000) {
 				if (rs1 == 0) {
 					// LI
