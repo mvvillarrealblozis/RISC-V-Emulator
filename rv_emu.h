@@ -21,7 +21,9 @@ typedef enum {
     FMT_I_ARITH = 0b0010011,
     FMT_S       = 0b0100011,
     FMT_SB      = 0b1100011,
-    FMT_UJ      = 0b1101111
+    FMT_UJ      = 0b1101111,
+    FMT_U       = 0b0110111,
+    FMT_SHIFTS  = 0b0111011
 } rv_format;
 
 // Width values for FMT_I_LOAD and FMT_S

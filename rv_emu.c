@@ -310,38 +310,38 @@ static void rv_one(rv_state *state) {
 #endif
 
     switch (opcode) {
-        case 0b0110011:
+        case FMT_R:
             // R-type instructions have two register operands
             emu_r_type(state, iw);
             break;
-        case 0b1100111:
+        case FMT_I_JALR:
             // JALR (aka RET) is a variant of I-type instructions
             emu_jalr(state, iw);
             break;
-        case 0b0010011:	
+        case FMT_I_ARITH:	
         	// I-type instructions
         	emu_i_type(state, iw);
         	break;
-        case 0b0000011:
+        case FMT_I_LOAD:
         	emu_i_type(state, iw);
         	break;
-        case 0b0110111:
+        case FMT_U:
         	// U-type instructions 
         	emu_u_type(state, iw);
         	break;
-        case 0b1101111:
+        case FMT_UJ:
         	// J-type instructions 
         	emu_j_type(state, iw);
         	break;
-        case 0b1100011:
+        case FMT_SB:
         	// B-type instructions 
         	emu_b_type(state, iw);
         	break;
-        case 0b0100011:
+        case FMT_S:
         	// S-type instructions
         	emu_s_type(state, iw);
         	break;
-        case 0b0111011:
+        case FMT_SHIFTS:
         	// SHIFTS
         	emu_shifts(state, iw);
         	break;
