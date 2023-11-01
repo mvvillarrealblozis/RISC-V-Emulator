@@ -193,65 +193,47 @@ void emu_j_type(rv_state *state, uint32_t iw) {
 
 
 void emu_b_type(rv_state *state, uint32_t iw) {
-	uint32_t rs1 = get_bits(iw, 15, 5);
-	uint32_t rs2 = get_bits(iw, 20, 5);
+    uint32_t rs1 = get_bits(iw, 15, 5);
+    uint32_t rs2 = get_bits(iw, 20, 5);
+    uint32_t funct3 = get_bits(iw, 12, 3);
 
-	uint32_t funct3 = get_bits(iw, 12, 3);
-	
-	int64_t imm12 = sign_extend(
-		get_bits(iw, 31, 1) << 12 |
-		get_bits(iw, 7, 1) << 11 |
-		get_bits(iw, 25, 6) << 5 |
-		get_bits(iw, 8, 4) << 1,
-		12
-	);
-	
-	if (funct3 == 0b001) { 
-			// BNE 
-		if (state->regs[rs1] != state->regs[rs2]) {
-			state->analysis.i_count++;
-			state->analysis.b_taken++;
-			state->pc += imm12;
-		} else {
-			state->analysis.i_count++;
-			state->analysis.b_not_taken++;		
-			state->pc += 4;
-		}
-	} else if (funct3 == 0b100) {
-			// BLT 
-		if ((int64_t) state->regs[rs1] < (int64_t) state->regs[rs2]) {
-			state->analysis.i_count++;
-			state->analysis.b_taken++;	
-			state->pc += imm12;
-		} else {
-			state->analysis.i_count++;
-			state->analysis.b_not_taken++;		
-			state->pc += 4;
-		}
-	} else if (funct3 == 0b000) {
-			// BEQ
-		if (state->regs[rs1] == state->regs[rs2]) {
-			state->analysis.i_count++;
-			state->analysis.b_taken++;
-			state->pc += imm12;
-		} else {
-			state->analysis.i_count++;
-			state->analysis.b_not_taken++;		
-			state->pc += 4;
-		}
-	} else if (funct3 == 0b101) {
-			// BGE
-		if (state->regs[rs1] >= state->regs[rs2]) {
-			state->analysis.i_count++;
-			state->analysis.b_taken++;
-			state->pc += imm12;
-		} else {
-			state->analysis.i_count++;
-			state->analysis.b_not_taken++;		
-			state->pc += 4;
-		}
-	}
+    int64_t imm12 = sign_extend(
+        get_bits(iw, 31, 1) << 12 |
+        get_bits(iw, 7, 1) << 11 |
+        get_bits(iw, 25, 6) << 5 |
+        get_bits(iw, 8, 4) << 1,
+        12
+    );
+
+    bool shouldBranch = false; // Boolean to decide if we should branch
+
+    switch(funct3) {
+        case 0b001:  // BNE 
+            shouldBranch = state->regs[rs1] != state->regs[rs2];
+            break;
+        case 0b100:  // BLT 
+            shouldBranch = (int64_t) state->regs[rs1] < (int64_t) state->regs[rs2];
+            break;
+        case 0b000:  // BEQ
+            shouldBranch = state->regs[rs1] == state->regs[rs2];
+            break;
+        case 0b101:  // BGE
+            shouldBranch = state->regs[rs1] >= state->regs[rs2];
+            break;
+        default:
+            break;  // For other cases, branching is false by default
+    }
+
+    state->analysis.i_count++;
+    if(shouldBranch) {
+        state->analysis.b_taken++;
+        state->pc += imm12;  // Take the branch
+    } else {
+        state->analysis.b_not_taken++;
+        state->pc += 4;  // Move to the next instruction
+    }
 }
+
 
 void emu_s_type(rv_state *state, uint32_t iw) {
 	uint32_t rd = get_bits(iw, 7, 5);
