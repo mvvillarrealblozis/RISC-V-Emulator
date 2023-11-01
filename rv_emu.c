@@ -225,7 +225,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += imm12;
 		} else {
 			state->analysis.i_count++;
-			state->analysis.b_not_taken++;
+			state->analysis.b_not_taken++;		
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b000) {
@@ -236,7 +236,7 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += imm12;
 		} else {
 			state->analysis.i_count++;
-			state->analysis.b_not_taken++;
+			state->analysis.b_not_taken++;		
 			state->pc += 4;
 		}
 	} else if (funct3 == 0b101) {
@@ -247,10 +247,10 @@ void emu_b_type(rv_state *state, uint32_t iw) {
 			state->pc += imm12;
 		} else {
 			state->analysis.i_count++;
-			state->analysis.b_not_taken++;
+			state->analysis.b_not_taken++;		
 			state->pc += 4;
 		}
-	} 
+	}
 }
 
 void emu_s_type(rv_state *state, uint32_t iw) {
