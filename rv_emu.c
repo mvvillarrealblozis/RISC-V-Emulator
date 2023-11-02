@@ -124,10 +124,10 @@ void emu_i_type(rv_state *state, uint32_t iw) {
 				state->regs[rd] = state->regs[rs1] >> shamt;
 			} else if (funct3 == 0b000) {
 				if (rs1 == 0) {
-				// LI
-				state->regs[rd] = imm12;
-				state->analysis.i_count++;
-				state->analysis.ir_count++;		
+					// LI
+					state->regs[rd] = imm12;
+					state->analysis.i_count++;
+					state->analysis.ir_count++;		
 				} else if (imm12 == 0) {
 					// MV
 					state->regs[rd] = state->regs[rs1];   
